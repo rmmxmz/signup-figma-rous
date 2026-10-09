@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.3"
+  },
+  "devDependencies": {
+    "supabase": "^2.120.0"
+  },
+  "scripts": {
+    "db:start": "(sudo iptables-legacy -C FORWARD -i br-+ -j ACCEPT 2>/dev/null || (sudo iptables-legacy -I FORWARD -i br-+ -j ACCEPT && sudo iptables-legacy -I FORWARD -o br-+ -j ACCEPT)) && supabase start",
+    "db:stop": "supabase stop"
+  }
+}

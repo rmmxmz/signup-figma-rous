@@ -1,121 +1,119 @@
 import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { supabase } from './supabaseClient'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [message, setMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const passwordsMatch = password === confirmPassword
+  const canSubmit = fullName.trim() !== '' && email.trim() !== '' && password.length >= 6 && passwordsMatch && !loading
+
+  async function handleSubmit(event) {
+    event.preventDefault()
+    setMessage('')
+    setErrorMessage('')
+
+    if (!passwordsMatch) {
+      setErrorMessage('Passwords do not match.')
+      return
+    }
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      // 1. Create the account in Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
+      })
+
+      if (signUpError) throw signUpError
+
+      const userId = data?.user?.id
+      if (!userId) {
+        throw new Error('User account was not created. Please try again.')
+      }
+
+      // 2. Save the profile row in your public table even if email confirmation is required
+      const { error: insertError } = await supabase.from('users').upsert(
+        {
+          id: userId,
+          full_name: fullName.trim(),
+          email: email.trim(),
+        },
+        { onConflict: 'id' }
+      )
+
+      if (insertError) throw insertError
+
+      // 3. Handle email confirmation requirement
+      if (!data?.session) {
+        setMessage('Account created! Please check your email to verify your account before logging in.')
+        // Clear sensitive fields only
+        setPassword('')
+        setConfirmPassword('')
+        return
+      }
+
+      // 4. Success
+      setMessage(`Welcome, ${fullName.trim()}! Your account was created.`)
+      setFullName('')
+      setEmail('')
+      setPassword('')
+      setConfirmPassword('')
+
+    } catch (err) {
+      setErrorMessage(err.message || 'An unexpected error occurred.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+    <div className="page">
+      <form className="signup-card" onSubmit={handleSubmit}>
+        <h1>Create an account</h1>
+        <p className="subtitle">Sign up to get started.</p>
+
+        <label htmlFor="fullName">Full name</label>
+        <input id="fullName" type="text" placeholder="Jane Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+
+        <label htmlFor="email">Email</label>
+        <input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+        <label htmlFor="password">Password</label>
+        <input id="password" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+
+        <label htmlFor="confirmPassword">Confirm password</label>
+        <input id="confirmPassword" type="password" placeholder="Type it again" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+
+        {confirmPassword !== '' && !passwordsMatch && (
+          <p className="error">Passwords do not match.</p>
+        )}
+
+        <button type="submit" disabled={!canSubmit}>
+          {loading ? 'Creating account…' : 'Sign Up'}
         </button>
-      </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        {errorMessage && <p className="error server-error">{errorMessage}</p>}
+        {message && <p className="success">{message}</p>}
+      </form>
+    </div>
   )
 }
 
